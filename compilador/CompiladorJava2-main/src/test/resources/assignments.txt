@@ -1,0 +1,5 @@
+init {
+    a, b, c, d, x, y : Int
+}
+a := b
+c := x + y * 2

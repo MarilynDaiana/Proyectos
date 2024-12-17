@@ -1,0 +1,6 @@
+init {
+    a1, b1, c1, d1 : Int
+}
+si ( a1 > b1 OR c1 > d1) {
+	c1 := d1
+}

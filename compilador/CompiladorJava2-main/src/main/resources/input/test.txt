@@ -1,0 +1,16 @@
+*- se inicializan las variables -*
+
+init {
+    a1, b2, edad : Int
+    c3 : Float
+    d4, d5, d6, genero : String
+}
+
+edad := 19
+
+si (edad >= 18){
+	a1 := 1
+}
+
+b2 := a1 + 1 / 2
+

@@ -1,0 +1,120 @@
+*- se inicializan las variables -*
+
+init {
+    a1, b2, edad : Int
+    c3 : Float
+    d4, d5, d6, genero : String
+}
+
+a1 := 4
+b2 := 9
+edad := 19
+
+c3 := 5.5
+
+d4 := "Test"
+d5 := "Hola"
+d6 := "Buenas tardes"
+
+si (edad >= 18){
+	escribir("Sos mayor de edad")
+}
+
+mientras (a1 < (b2 + 3)){
+	a1 := a1 + 1
+}
+
+*- esto es un comentario -*
+
+si ( d4 == d5 AND d4 == d6){
+	escribir("d4 es igual a d5 y d6")
+}
+sino {
+	escribir("d4 no es igual a d5 o d6")
+}
+
+si (NOT a1 == 1){
+	leer("Hola")
+}
+
+mientras (a1 == 2 AND b2 < 3){
+	a1 := a1 + 1
+}
+
+a1 := b2 * 3  + (b2 + 1) - edad
+
+a1 := binaryCount([110,1,0,5,a1,1010, 1])
+
+
+b2 := triangulo(a1,b2,c3)
+
+*- aca finaliza el programa -*
+
+
+*- Casos de error de LEXICO:-*
+
+*-  CTE ENTERA FUERA DE RANGO -*
+*- a1 := 999999999 -*
+
+*-  CTE FLOAT FUERA DE RANGO -*
+*- a1 := 999999999999999.99 -*
+
+*-  CTE STRING FUERA DE RANGO -*
+*- a1 := "SDA DASDADADASDASDAD DADASDAD ADADSD AD ADADADAD A ADASD ASD AD" -*
+
+*- ID DEMASIADO LARGO -*
+*- miIdSuperMegaUltraLargo123456789Prueba -*
+
+
+
+
+*- Casos de error de SINTAXIS -*
+
+
+*- ASIGNACION INVALIDA -*
+*- a1 := si -*
+
+
+*- BUCLE WHILE INVALIDO  -*
+*- mientras ( 4 > 5) {} -*
+
+*- IF INVALIDO  -*
+*- si 4 > 5 { a1 := b} -*
+
+
+*- CONDICIONAL INVALIDO  -*
+*- mientras ( 4 > 5 > 6 > 7) {} -*
+
+
+
+*- Casos de error de SEMANTICOS-*
+
+*- ASIGNACION DE FLOAT A ID ENTERO  -*
+
+*- a1 := c3 -*
+
+*- ASIGNACION DE STRING A ID ENTERO  -*
+
+*- a1 := genero -*
+
+*- ASIGNACION DE STRING A ID FLOTANTE  -*
+
+*- c3 := genero -*
+
+*- ASIGNACION A ID QUE NO EXISTE  -*
+
+*- idxx := 5.5 -*
+
+*- OPERACION ARITMETICA ENTRE INT Y STRING  -*
+
+*- a1 := 1 + 5 / genero -*
+
+*- OPERACION ARITMETICA ENTRE FLOAT Y STRING  -*
+
+*- c3 := 5.5 + genero -*
+
+*- OPERACION ARITMETICA CON ID QUE NO EXISTE  -*
+
+*- c3 := 5.5 - idxxxyy -*
+
+

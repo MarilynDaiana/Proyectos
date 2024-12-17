@@ -1,0 +1,7 @@
+init {
+    a, b, c, d : Int
+}
+
+mientras ( a > b) {
+	c := d
+}

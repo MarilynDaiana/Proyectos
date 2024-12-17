@@ -1,0 +1,7 @@
+init {
+    nroCuenta1, base : String
+}
+
+escribir("mi string")
+escribir(nroCuenta1)
+escribir(base) *- base es una variable -*

@@ -1,0 +1,7 @@
+*- prueba de comentarios -*
+*-se incluye el init porque no se permite compilar un programa vacio-*
+
+init {
+    a1, b2 : Int
+}
+

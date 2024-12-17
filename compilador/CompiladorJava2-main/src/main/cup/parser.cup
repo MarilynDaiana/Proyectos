@@ -1,0 +1,884 @@
+package lyc.compiler;
+
+import java.util.Stack;
+import java_cup.runtime.*;
+import lyc.compiler.symboltable.SymbolTable;
+import lyc.compiler.symboltable.Simbolo;
+import lyc.compiler.polacaInversa.PolacaInversa;
+import lyc.compiler.model.*;
+import lyc.compiler.TablaSintesis.TablaSintesis;
+
+import java.util.ArrayList;
+class Parser;
+
+action code {:
+
+boolean es_and = false;
+int pos;
+
+public Stack<Integer> pila = new Stack();
+public Stack<String> pilaTipoDato = new Stack();
+public String condicional;
+public ArrayList<String> variables = new ArrayList<String>();
+public void insertar(String nombre, String tipo, String valor, boolean esConstante){
+    SymbolTable tabla = SymbolTable.getSymbolTable();
+
+    int longitud = 0;
+    if (valor != null){
+        longitud = valor.length();
+    }
+    tabla.add(nombre,tipo,valor,longitud, esConstante);
+ }
+
+ public void actualizarUsoId(String id) {
+ 	SymbolTable tabla = SymbolTable.getSymbolTable();
+ 	tabla.markSymbolAsUsed(id);
+ }
+
+ public String negacion(String condicional){
+	switch (condicional) {
+        case "BLE":
+            return "BGT";
+        case "BLT":
+            return "BGE";
+        case "BGE":
+            return "BLT";
+        case "BGT":
+            return "BLE";
+        case "BNE":
+            return "BEQ";
+        case "BEQ":
+            return "BNE";
+        default:
+            return "???";
+        }
+ }
+ public void insertarEnPolaca(String elemento){
+ 	PolacaInversa.getPolacaInversa().insertar(elemento);
+ }
+ public void reemplazarEnPolaca(int posicion, String valor){
+	PolacaInversa.getPolacaInversa().reemplazar(posicion,valor);
+ }
+
+ public void avanzarPolaca(){
+ 	PolacaInversa.getPolacaInversa().insertar(" ");
+  }
+
+ public int getSizePolaca(){
+	return PolacaInversa.getPolacaInversa().size();
+ }
+
+ public void verificarId(Object id) throws UnknownIdException{
+	SymbolTable tabla = SymbolTable.getSymbolTable();
+	if (!tabla.exists(id.toString())){
+		throw new UnknownIdException("Identificador no declarado: "+id+"\n");
+	}
+ }
+
+ public boolean idExisteEnTablaSimbolo(String lexema){
+   SymbolTable tabla = SymbolTable.getSymbolTable();
+	return tabla.exists(lexema);
+ }
+
+ public String obtenerTipoDato(String lexema){
+ 	SymbolTable tabla = SymbolTable.getSymbolTable();
+ 	Simbolo simboloObtenido = tabla.getSymbol(lexema);
+ 	return  simboloObtenido.getTipo();
+  }
+
+ public void apilarTipoDatoId(String lexema){
+  String tipoDato = obtenerTipoDato(lexema);
+  pilaTipoDato.add(tipoDato);
+}
+
+public void apilarTipoDatoCte(String tipoDato){
+  pilaTipoDato.add(tipoDato);
+}
+
+public void resolverTipoDatoAsignacion() throws InvalidAsignmentException {
+
+	String leftSide = pilaTipoDato.pop();
+	String rightSide = pilaTipoDato.pop();
+
+	String tipoResultante = TablaSintesis.resolverTipoDatoAsignacion(leftSide, rightSide);
+}
+
+public void resolverTipoDatoOpAritmetica() throws InvalidAritmeticOperationException {
+
+	String leftSide = pilaTipoDato.pop();
+	String rightSide = pilaTipoDato.pop();
+
+	String tipoResultante = TablaSintesis.resolverTipoDatoAritmetica(leftSide, rightSide);
+
+	//se apila el tipo de dato del resultado de la operacion para encadenar con otras operaciones
+	pilaTipoDato.add(tipoResultante);
+
+}
+
+public void resolverTipoDatoComparacion() throws InvalidComparisonException {
+
+	String leftSide = pilaTipoDato.pop();
+	String rightSide = pilaTipoDato.pop();
+
+	String tipoResultante = TablaSintesis.resolverTipoDatoComparacion(leftSide, rightSide);
+}
+
+:};
+
+
+
+
+
+// Terminals
+
+/* ------------------------ PALABRAS RESERVADAS BLOQUES ------------- */
+
+terminal SI;
+terminal SINO;
+terminal MIENTRAS;
+terminal INIT;
+
+/* ------------ PALABRAS RESERVADAS TIPOS DE DATOS ------------------- */
+
+terminal INT;
+terminal FLOAT;
+terminal STRING;
+
+/* ----------- PALABRAS RESERVADAS ENTRADA / SALIDA ---------------- */
+
+terminal LEER;
+terminal ESCRIBIR;
+
+/* ----------- PALABRAS RESERVADAS TEMAS ESPECIALES ---------------- */
+
+terminal TRIANGULO;
+terminal BINARY_COUNT;
+
+
+/* ----------------------- OPERADORES ARITMETICOS -----------------------*/
+
+terminal ASSIG;
+terminal PLUS;
+terminal SUB;
+terminal MULT;
+terminal DIV;
+
+
+/* ------------------------ OPERADORES LOGICOS -------------------------- */
+
+terminal EQUAL;
+terminal NOT_EQUAL;
+terminal GREATER_THAN;
+terminal GREATER_THAN_EQUAL;
+terminal LESS_THAN;
+terminal LESS_THAN_EQUAL;
+terminal AND;
+terminal OR;
+terminal NOT;
+
+
+/* ------------------------ TOKEN DE BLOQUES Y AGRUPAMIENTO ------------- */
+
+terminal OPEN_BRACKET;
+terminal CLOSE_BRACKET;
+terminal OPEN_CURLY_BRACKET;
+terminal CLOSE_CURLY_BRACKET;
+terminal OPEN_SQUARE_BRACKET;
+terminal CLOSE_SQUARE_BRACKET;
+terminal COMMA;
+terminal DOT;
+terminal COLON;
+
+
+/* -------------------------  IDENTIFICADOR ------------------------- */
+
+terminal IDENTIFIER;
+
+/* ------------------------- CONSTANTES ------------------------- */
+terminal INTEGER_CONSTANT;
+terminal FLOAT_CONSTANT;
+terminal STRING_CONSTANT;
+
+
+
+// Non Terminals
+non terminal sentence;
+non terminal assignment;
+non terminal expression;
+non terminal term;
+non terminal factor;
+
+// --------------- Aca ponemos nuestros NO terminales ------------------
+non terminal program;
+non terminal block;
+non terminal bloque_inicializacion;
+non terminal inicializacion;
+non terminal lista_identificadores;
+non terminal tipo_dato;
+non terminal lista;
+non terminal elementos_lista;
+
+
+// -- sentencias del lenguaje
+non terminal sentencia_inicializacion;
+non terminal sentencia_si;
+non terminal sentencia_si_sino;
+non terminal else;
+non terminal sentencia_mientras;
+non terminal etiqueta;
+non terminal sentencia_leer;
+non terminal sentencia_escribir;
+non terminal sentencia_binarycount;
+non terminal sentencia_triangulo;
+
+
+// --- condicionales y comparadores
+non terminal condition_group;
+non terminal condition;
+non terminal op_logico;
+non terminal elem_condition;
+
+
+// Start Symbol Definition
+start with program;
+
+program ::= block {:
+  System.out.println("Parser: program -> block");
+  System.out.println("--------------- COMPILACION EXITOSA ------------------\n\n");
+:};
+
+block ::= block sentence;
+block ::= sentence;
+
+//Sentencia de asignacion
+sentence ::= assignment {:
+	System.out.println("Parser: sentence -> assignment");
+:};
+assignment ::= IDENTIFIER:id ASSIG expression {:
+	System.out.println("Parser: assignment -> IDENTIFIER (" + id + ")  ASSIG expression");
+	verificarId(id);
+
+	apilarTipoDatoId(id.toString());
+	resolverTipoDatoAsignacion();
+
+	insertarEnPolaca(id.toString());
+	insertarEnPolaca("=");
+:};
+assignment ::= IDENTIFIER:id ASSIG sentencia_binarycount {:
+	System.out.println("Parser: assignment -> IDENTIFIER (" + id + ")  ASSIG sentencia_binarycount");
+	verificarId(id);
+	insertarEnPolaca("@cantidadDeBinarios");
+	insertarEnPolaca(id.toString());
+	insertarEnPolaca("=");
+:};
+assignment ::= IDENTIFIER:id ASSIG sentencia_triangulo {:
+	System.out.println("Parser: assignment -> IDENTIFIER (" + id + ")  ASSIG sentencia_triangulo");
+	verificarId(id);
+	insertarEnPolaca("@tipoTriangulo");
+	insertarEnPolaca(id.toString());
+	insertarEnPolaca("=");
+:};
+assignment ::= IDENTIFIER:id ASSIG STRING_CONSTANT:constant {:
+	System.out.println("Parser: assignment -> IDENTIFIER (" + id + ")  ASSIG STRING_CONSTANT (" + constant + ")");
+
+	verificarId(id);
+
+	//se eliminan los "" de la cte antes de almacenar en la tabla.
+	String s = constant.toString();
+	s = s.substring(1,s.length()-1);
+	insertar(s, "STRING", s, true);
+
+	apilarTipoDatoCte("STRING");
+    apilarTipoDatoId(id.toString());
+
+	resolverTipoDatoAsignacion();
+
+
+
+
+	insertarEnPolaca(constant.toString());
+	insertarEnPolaca(id.toString());
+	insertarEnPolaca("=");
+:};
+expression ::= expression PLUS term {:
+	System.out.println("Parser: expression -> expression PLUS term");
+
+	resolverTipoDatoOpAritmetica();
+
+	insertarEnPolaca("+");
+:};
+expression ::= expression SUB term {:
+	System.out.println("Parser: expression -> expression SUB term");
+
+	resolverTipoDatoOpAritmetica();
+
+	insertarEnPolaca("-");
+:};
+
+//En este no hace falta agregar nada para la notación intermedia
+expression ::= term {:
+	System.out.println("Parser: expression -> term");
+:};
+term ::= term MULT factor {:
+	System.out.println("Parser: term -> term MULT factor");
+
+	resolverTipoDatoOpAritmetica();
+
+	insertarEnPolaca("*");
+:};
+term ::= term DIV factor {:
+	System.out.println("Parser: term -> term DIV factor");
+
+	resolverTipoDatoOpAritmetica();
+
+	insertarEnPolaca("/");
+:};
+
+//En este no hace falta agregar nada para la notación intermedia
+term ::= factor {:
+	System.out.println("Parser: term -> factor");
+:};
+factor ::= IDENTIFIER:id  {:
+	System.out.println("Parser: factor -> IDENTIFIER (" + id + ")");
+
+	verificarId(id);
+
+	actualizarUsoId(id.toString());
+
+	apilarTipoDatoId(id.toString());
+
+	insertarEnPolaca(id.toString());
+:};
+factor ::= INTEGER_CONSTANT:constant {:
+	System.out.println("Parser: factor -> INTEGER_CONSTANT (" + constant + ")");
+
+
+	apilarTipoDatoCte("INT");
+
+	insertar(constant.toString(), "INT", constant.toString(), true);
+	insertarEnPolaca(constant.toString());
+:};
+factor ::= FLOAT_CONSTANT:constant {:
+	System.out.println("Parser: factor -> FLOAT_CONSTANT (" + constant + ")");
+
+	apilarTipoDatoCte("FLOAT");
+
+	insertar(constant.toString(), "FLOAT", constant.toString(), true);
+	insertarEnPolaca(constant.toString());
+:};
+
+//En este no hace falta agregar nada para la notación intermedia
+factor ::= OPEN_BRACKET expression CLOSE_BRACKET {:
+	System.out.println("Parser: factor -> OPEN_BRACKET expression CLOSE_BRACKET");
+:};
+
+
+//Sentencia de inicializacion
+sentence ::= inicializacion {:
+	System.out.println("Parser: sentence -> inicializacion\n\n");
+:};
+inicializacion ::= INIT OPEN_CURLY_BRACKET bloque_inicializacion CLOSE_CURLY_BRACKET {:
+	System.out.println("Parser: inicializacion -> INIT OPEN_CURLY_BRACKET bloque_inicializacion CLOSE_CURLY_BRACKET");
+:};
+bloque_inicializacion ::= bloque_inicializacion sentencia_inicializacion {:
+	System.out.println("Parser: bloque_inicializacion -> bloque_inicializacion sentencia_inicializacion");
+:};
+bloque_inicializacion ::= sentencia_inicializacion {:
+	System.out.println("Parser: bloque_inicializacion -> sentencia_inicializacion");
+:};
+sentencia_inicializacion ::= lista_identificadores  COLON tipo_dato {:
+	System.out.println("Parser: sentencia_inicializacion -> lista_identificadores  COLON tipo_dato");
+:};
+lista_identificadores ::= lista_identificadores COMMA IDENTIFIER:id {:
+	System.out.println("Parser: lista_identificadores -> lista_identificadores COMMA IDENTIFIER (" + id + ")");
+	variables.add(id.toString());
+:};
+lista_identificadores ::=  IDENTIFIER:id {:
+	System.out.println("Parser: lista_identificadores -> IDENTIFIER (" + id + ")");
+	variables.add(id.toString());
+:};
+tipo_dato ::= INT {:
+	System.out.println("Parser: tipo_dato -> Int");
+	for (String id : variables) {
+		if(idExisteEnTablaSimbolo(id)){
+			throw new AlreadyDeclaredIdException("No se puede declarar el id " + id + " mas de una vez.");
+		}
+		insertar(id, "INT", null, false);
+  	}
+	variables.clear();
+:};
+tipo_dato ::= FLOAT {:
+	System.out.println("Parser: tipo_dato -> Float");
+	for (String id : variables) {
+		if(idExisteEnTablaSimbolo(id)){
+			throw new AlreadyDeclaredIdException("No se puede declarar el id " + id + " mas de una vez.");
+		}
+		insertar(id.toString(), "FLOAT", null, false);
+	}
+	variables.clear();
+:};
+tipo_dato ::= STRING {:
+	System.out.println("Parser: tipo_dato -> String");
+	for (String id : variables) {
+		if(idExisteEnTablaSimbolo(id)){
+			throw new AlreadyDeclaredIdException("No se puede declarar el id " + id + " mas de una vez.");
+		}
+	  	insertar(id.toString(), "STRING", null, false);
+	}
+	variables.clear();
+:};
+
+// sentencia leer
+sentence ::= sentencia_leer {:
+	System.out.println("Parser: sentence ::= sentencia_leer");
+:};
+
+sentencia_leer ::= LEER OPEN_BRACKET IDENTIFIER:id CLOSE_BRACKET {:
+	System.out.println("Parser: sentencia_leer ::= LEER OPEN_BRACKET IDENTIFIER (" + id + ") CLOSE_BRACKET");
+
+	actualizarUsoId(id.toString());
+	verificarId(id);
+	insertarEnPolaca("Leer");
+	insertarEnPolaca(id.toString());
+:};
+
+sentencia_leer ::= LEER OPEN_BRACKET INTEGER_CONSTANT:cte CLOSE_BRACKET {:
+	System.out.println("Parser: sentencia_leer ::= LEER OPEN_BRACKET INTEGER_CONSTANT (" + cte + ") CLOSE_BRACKET");
+	insertarEnPolaca("Leer");
+	insertarEnPolaca(cte.toString());
+:};
+
+sentencia_leer ::= LEER OPEN_BRACKET FLOAT_CONSTANT:cte CLOSE_BRACKET {:
+	System.out.println("Parser: sentencia_leer ::= LEER OPEN_BRACKET FLOAT_CONSTANT (" + cte + ") CLOSE_BRACKET");
+	insertarEnPolaca("Leer");
+	insertarEnPolaca(cte.toString());
+:};
+
+sentencia_leer ::= LEER OPEN_BRACKET STRING_CONSTANT:cte CLOSE_BRACKET {:
+	System.out.println("Parser: sentencia_leer ::= LEER OPEN_BRACKET STRING_CONSTANT (" + cte + ") CLOSE_BRACKET");
+	String s = cte.toString();
+	s = s.substring(1,s.length()-1);
+
+	insertarEnPolaca("Leer");
+	insertarEnPolaca(s.toString());
+:};
+
+// sentencia escribir
+sentence ::= sentencia_escribir {:
+	System.out.println("Parser: sentence ::= sentencia_escribir");
+:};
+
+sentencia_escribir ::= ESCRIBIR OPEN_BRACKET IDENTIFIER:id CLOSE_BRACKET {:
+	System.out.println("Parser: sentencia_escribir ::= ESCRIBIR OPEN_BRACKET IDENTIFIER (" + id + ") CLOSE_BRACKET");
+
+	actualizarUsoId(id.toString());
+	verificarId(id);
+	insertarEnPolaca("Escribir");
+	insertarEnPolaca(id.toString());
+:};
+
+sentencia_escribir ::= ESCRIBIR OPEN_BRACKET INTEGER_CONSTANT:cte CLOSE_BRACKET {:
+	System.out.println("Parser: sentencia_escribir ::= ESCRIBIR OPEN_BRACKET INTEGER_CONSTANT (" + cte + ") CLOSE_BRACKET");
+	insertarEnPolaca("Escribir");
+	insertarEnPolaca(cte.toString());
+:};
+
+sentencia_escribir ::= ESCRIBIR OPEN_BRACKET FLOAT_CONSTANT:cte CLOSE_BRACKET {:
+	System.out.println("Parser: ssentencia_escribir ::= ESCRIBIR OPEN_BRACKET FLOAT_CONSTANT (" + cte + ") CLOSE_BRACKET");
+	insertarEnPolaca("Escribir");
+	insertarEnPolaca(cte.toString());
+:};
+
+sentencia_escribir ::= ESCRIBIR OPEN_BRACKET STRING_CONSTANT:cte CLOSE_BRACKET {:
+	System.out.println("Parser: sentencia_escribir ::= ESCRIBIR OPEN_BRACKET STRING_CONSTANT (" + cte + ") CLOSE_BRACKET");
+	String s = cte.toString();
+	s = s.substring(1,s.length()-1);
+
+	insertarEnPolaca("Escribir");
+	insertarEnPolaca(s.toString());
+:};
+
+// sentencia while
+sentence ::= sentencia_mientras {:
+	if(es_and == true){
+		reemplazarEnPolaca(pila.pop()-1,"#" + Integer.toString(getSizePolaca()+3));
+		reemplazarEnPolaca(pila.pop()-1,"#" + Integer.toString(getSizePolaca()+3));
+		insertarEnPolaca("BI");
+		insertarEnPolaca(""+pila.pop());
+		System.out.println("Parser: sentence ::= sentencia_while\n\n");
+		es_and = false;
+	}else{
+		reemplazarEnPolaca(pila.pop()-1,"#" + Integer.toString(getSizePolaca()+3));
+		insertarEnPolaca("BI");
+		insertarEnPolaca(""+pila.pop());
+		System.out.println("Parser: sentence ::= sentencia_while\n\n");
+	}
+:};
+
+sentencia_mientras ::= MIENTRAS OPEN_BRACKET etiqueta condition_group CLOSE_BRACKET OPEN_CURLY_BRACKET block CLOSE_CURLY_BRACKET {:
+	System.out.println("Parser: sentence -> MIENTRAS OPEN_BRACKET etiqueta condition_group CLOSE_BRACKET OPEN_CURLY_BRACKET block CLOSE_CURLY_BRACKET");
+:};
+etiqueta ::= {:
+	insertarEnPolaca("ET");
+	pila.add(getSizePolaca());
+:};
+// sentencia if 
+sentence ::= sentencia_si{:
+	if(es_and == true){
+		reemplazarEnPolaca(pila.pop()-1,"#" + Integer.toString(getSizePolaca()+1));
+		reemplazarEnPolaca(pila.pop()-1,"#" + Integer.toString(getSizePolaca()+1));
+		System.out.println("Parser: sentence -> sentencia_si\n\n");
+		es_and = false;
+	}else{
+		reemplazarEnPolaca(pila.pop()-1,"#" + Integer.toString(getSizePolaca()+1));
+		System.out.println("Parser: sentence -> sentencia_si\n\n");
+	}
+:};
+
+sentencia_si ::= SI OPEN_BRACKET condition_group CLOSE_BRACKET OPEN_CURLY_BRACKET block CLOSE_CURLY_BRACKET {:
+	System.out.println("Parser: sentencia_si -> SI OPEN_BRACKET condition_group CLOSE_BRACKET OPEN_CURLY_BRACKET block CLOSE_CURLY_BRACKET");
+:};
+
+
+// sentencia if else
+sentence ::= sentencia_si_sino{:
+	reemplazarEnPolaca(pila.pop()-1,Integer.toString(getSizePolaca()+1));
+	System.out.println("Parser: sentence -> sentencia_si_sino\n\n");
+:};
+
+sentencia_si_sino ::= SI OPEN_BRACKET condition_group CLOSE_BRACKET OPEN_CURLY_BRACKET block CLOSE_CURLY_BRACKET else SINO OPEN_CURLY_BRACKET block CLOSE_CURLY_BRACKET {:
+	System.out.println("Parser: sentencia_si_sino -> SI OPEN_BRACKET condition_group CLOSE_BRACKET OPEN_CURLY_BRACKET block CLOSE_CURLY_BRACKET else SINO OPEN_CURLY_BRACKET block CLOSE_CURLY_BRACKET");
+:};
+
+else ::= {:
+	
+	if(es_and == true){
+		reemplazarEnPolaca(pila.pop()-1,"#" + Integer.toString(getSizePolaca()+3));
+		reemplazarEnPolaca(pila.pop()-1,"#" + Integer.toString(getSizePolaca()+3));
+		System.out.println("Parser: sentence -> sentencia_si_sino\n\n");
+		es_and = false;
+		insertarEnPolaca("BI");
+		insertarEnPolaca("#");
+		pila.add(getSizePolaca());//ubicacion de salto si condicion del if es falsa	
+	}else{
+	reemplazarEnPolaca(pila.pop()-1,"#" + Integer.toString(getSizePolaca()+3));// CMP BXX #NUM +1 posicion siguiente, +2 saltea BI #NUM
+	insertarEnPolaca("BI");
+	insertarEnPolaca("#");
+	pila.add(getSizePolaca());//ubicacion de salto si condicion del if es falsa
+	//System.out.println("*******************************************");
+	}
+:};
+
+//se crea un grupo de condiciones para abarcar todas los tipos de condicionales, ya sea de una condicion sola, una condicion sola pero negada o condiciones dobles
+condition_group ::= condition {:
+	System.out.println("Parser: condition_group -> condition");
+:};
+
+condition_group ::= NOT condition {:
+	int pos = pila.peek()-2;
+	reemplazarEnPolaca(pos,negacion(condicional)); 
+	System.out.println("Parser: condition_group -> NOT condition");
+:};
+
+condition_group ::= condition AND condition {:
+	System.out.println("Parser: condition_group -> condition AND condition");
+	es_and = true;
+:};
+
+condition_group ::= condition{:
+	reemplazarEnPolaca(pila.pop()-1,"#" + Integer.toString(getSizePolaca()+3));
+	insertarEnPolaca("BI");
+	insertarEnPolaca("#");
+	pos = getSizePolaca();
+:} OR condition {:
+	reemplazarEnPolaca(pos-1,"#" + Integer.toString(getSizePolaca()+1));
+	System.out.println("Parser: condition_group -> condition OR condition");
+:};
+
+condition ::= elem_condition op_logico elem_condition {:
+
+	resolverTipoDatoComparacion();
+
+	insertarEnPolaca("CMP");
+	insertarEnPolaca(condicional);
+	insertarEnPolaca("#");
+	pila.add(getSizePolaca());
+	System.out.println("Parser: condition -> expression op_logico expression");
+:};
+
+elem_condition ::= expression {:
+	System.out.println("Parser: elem_condition -> expression");
+:};
+elem_condition ::= STRING_CONSTANT:constant{:
+	//se eliminan los "" de la cte antes de almacenar en la tabla.
+	String s = constant.toString();
+	s = s.substring(1,s.length()-1);
+	insertar(s, "STRING", s, true);
+
+	apilarTipoDatoCte("STRING");
+  	System.out.println("Parser: elem_condition -> STRING_CONSTANT");
+ :};
+
+condition ::= NOT expression {:
+	System.out.println("Parser: condition -> NOT expression");
+:};
+
+op_logico ::= GREATER_THAN {:
+	condicional = "BLE";
+	System.out.println("Parser: op_logico ->  GREATER_THAN");
+:};
+
+op_logico ::= GREATER_THAN_EQUAL {:
+	condicional = "BLT";
+	System.out.println("Parser: op_logico ->  GREATER_THAN_EQUAL");
+:};
+
+op_logico ::= LESS_THAN {:
+	condicional = "BGE";
+	System.out.println("Parser: op_logico ->  LESS_THAN");
+:};
+
+op_logico ::= LESS_THAN_EQUAL {:
+	condicional = "BGT";
+	System.out.println("Parser: op_logico ->  LESS_THAN_EQUAL");
+:};
+
+op_logico ::= EQUAL {:
+	condicional = "BNE";
+	System.out.println("Parser: op_logico ->  EQUAL");
+:};
+
+op_logico ::= NOT_EQUAL {:
+	condicional = "BEQ";
+	System.out.println("Parser: op_logico ->  NOT_EQUAL");
+:};
+
+//sentencia binaryCount
+sentencia_binarycount ::= BINARY_COUNT OPEN_BRACKET lista CLOSE_BRACKET  {:
+	System.out.println("Parser: sentencia_binarycount -> BINARY_COUNT OPEN_BRACKET lista CLOSE_BRACKET");
+:};
+lista ::= OPEN_SQUARE_BRACKET elementos_lista CLOSE_SQUARE_BRACKET  {:
+	System.out.println("Parser: sentencia_binarycount -> OPEN_SQUARE_BRACKET elementos_lista CLOSE_SQUARE_BRACKET");
+:};
+elementos_lista ::= elementos_lista COMMA factor {:
+//	System.out.println("Parser: sentencia_binarycount -> elementos_lista COMMA factor");
+//
+//	insertarEnPolaca("num");
+//	insertarEnPolaca("=");
+//
+//	insertarEnPolaca("0");
+//	insertarEnPolaca("@cantidadDeBinarios");
+//	insertarEnPolaca("=");
+//
+//	// verifico si el numero es un binario dentro de un while
+//	pos = getSizePolaca();
+//	insertarEnPolaca("num");
+//	insertarEnPolaca("0");
+//	insertarEnPolaca("CMP");
+//	insertarEnPolaca("BEQ");
+//	pila.add(getSizePolaca());
+//	avanzarPolaca();
+//
+//	insertarEnPolaca("num");
+//	insertarEnPolaca("10");
+//	insertarEnPolaca("/");
+//	insertarEnPolaca("cociente");
+//	insertarEnPolaca("=");
+//
+//	insertarEnPolaca("num");
+//	insertarEnPolaca("cociente");
+//	insertarEnPolaca("10");
+//	insertarEnPolaca("*");
+//	insertarEnPolaca("-");
+//	insertarEnPolaca("digito");
+//	insertarEnPolaca("=");
+//
+//	// chequeo si el digito no es igual a 0
+//	insertarEnPolaca("digito");
+//	insertarEnPolaca("0");
+//	insertarEnPolaca("CMP");
+//	insertarEnPolaca("BNE");
+//	pila.add(getSizePolaca());
+//	avanzarPolaca();
+//
+//	// chequeo si el digito no es igual a 1
+//	insertarEnPolaca("digito");
+//	insertarEnPolaca("1");
+//	insertarEnPolaca("CMP");
+//	insertarEnPolaca("BNE");
+//	pila.add(getSizePolaca());
+//	avanzarPolaca();
+//
+//	// elimino el digito que chequie
+//	insertarEnPolaca("num");
+//	insertarEnPolaca("10");
+//	insertarEnPolaca("/");
+//	insertarEnPolaca("num");
+//	insertarEnPolaca("=");
+//
+//	// vuelvo al comienzo del while
+//	insertarEnPolaca("BI");
+//	insertarEnPolaca(pos.toString());
+//
+//	// desapilo los saltos
+//	reemplazarEnPolaca(pila.pop(), Integer.toString(getSizePolaca()+6));
+//	reemplazarEnPolaca(pila.pop(), Integer.toString(getSizePolaca()+6));
+//	reemplazarEnPolaca(pila.pop(), Integer.toString(getSizePolaca()));
+//
+//	// cuento si es binario
+//	insertarEnPolaca("@cantidadDeBinarios");
+//	insertarEnPolaca("1");
+//	insertarEnPolaca("+");
+//	insertarEnPolaca("@cantidadDeBinarios");
+//	insertarEnPolaca("=");
+:};
+elementos_lista ::= factor {:
+//	System.out.println("Parser: sentencia_binarycount -> factor");
+//	insertarEnPolaca("num");
+//	insertarEnPolaca("=");
+//
+//	insertarEnPolaca("0");
+//	insertarEnPolaca("@cantidadDeBinarios");
+//	insertarEnPolaca("=");
+//
+//	// verifico si el numero es un binario dentro de un while
+//	pos = getSizePolaca();
+//	insertarEnPolaca("num");
+//	insertarEnPolaca("0");
+//	insertarEnPolaca("CMP");
+//	insertarEnPolaca("BEQ");
+//	pila.add(getSizePolaca());
+//	avanzarPolaca();
+//
+//	insertarEnPolaca("num");
+//	insertarEnPolaca("10");
+//	insertarEnPolaca("/");
+//	insertarEnPolaca("cociente");
+//	insertarEnPolaca("=");
+//
+//	insertarEnPolaca("num");
+//	insertarEnPolaca("cociente");
+//	insertarEnPolaca("10");
+//	insertarEnPolaca("*");
+//	insertarEnPolaca("-");
+//	insertarEnPolaca("digito");
+//	insertarEnPolaca("=");
+//
+//	// chequeo si el digito no es igual a 0
+//	insertarEnPolaca("digito");
+//	insertarEnPolaca("0");
+//	insertarEnPolaca("CMP");
+//	insertarEnPolaca("BNE");
+//	pila.add(getSizePolaca());
+//	avanzarPolaca();
+//
+//	// chequeo si el digito no es igual a 1
+//	insertarEnPolaca("digito");
+//	insertarEnPolaca("1");
+//	insertarEnPolaca("CMP");
+//	insertarEnPolaca("BNE");
+//	pila.add(getSizePolaca());
+//	avanzarPolaca();
+//
+//	// elimino el digito que chequie
+//	insertarEnPolaca("num");
+//	insertarEnPolaca("10");
+//	insertarEnPolaca("/");
+//	insertarEnPolaca("num");
+//	insertarEnPolaca("=");
+//
+//	// vuelvo al comienzo del while
+//	insertarEnPolaca("BI");
+//	insertarEnPolaca(pos.toString());
+//
+//	// desapilo los saltos
+//	reemplazarEnPolaca(pila.pop(), Integer.toString(getSizePolaca()+6));
+//	reemplazarEnPolaca(pila.pop(), Integer.toString(getSizePolaca()+6));
+//	reemplazarEnPolaca(pila.pop(), Integer.toString(getSizePolaca()));
+//
+//	// cuento si es binario
+//	insertarEnPolaca("@cantidadDeBinarios");
+//	insertarEnPolaca("1");
+//	insertarEnPolaca("+");
+//	insertarEnPolaca("@cantidadDeBinarios");
+//	insertarEnPolaca("=");
+:};
+
+//sentencia triangulo
+sentencia_triangulo ::= TRIANGULO OPEN_BRACKET expression COMMA {:
+	insertarEnPolaca("@L1");
+	insertarEnPolaca("=");
+
+:} expression COMMA {:
+	insertarEnPolaca("@L2");
+	insertarEnPolaca("=");
+:} expression  {:
+	insertarEnPolaca("@L3");
+	insertarEnPolaca("=");
+:} CLOSE_BRACKET {:
+	System.out.println("Parser: sentencia_triangulo -> TRIANGULO OPEN_BRACKET factor COMMA factor COMMA factor CLOSE_BRACKET");
+
+	//Arranco definiendo que retornaria un triangulo isosceles, y luego comparando la igualdad de los lados cambio el valor de retorno a "equilatero" o "escaleno"
+	insertarEnPolaca("isosceles");
+	insertarEnPolaca("@tipoTriangulo");
+	insertarEnPolaca("=");
+
+	//if de verificación de triangulo equilatero:  @L1 == @L2 AND @L2 == @L3
+	insertarEnPolaca("@L1");
+	insertarEnPolaca("@L2");
+	insertarEnPolaca("CMP");
+	insertarEnPolaca("BNE");
+	pila.add(getSizePolaca());
+	avanzarPolaca();
+
+	insertarEnPolaca("@L2");
+	insertarEnPolaca("@L3");
+	insertarEnPolaca("CMP");
+	insertarEnPolaca("BNE");
+	pila.add(getSizePolaca());
+	avanzarPolaca();
+
+	insertarEnPolaca("equilatero");
+	insertarEnPolaca("@tipoTriangulo");
+	insertarEnPolaca("=");
+	insertarEnPolaca("BI");
+	reemplazarEnPolaca(pila.pop(),"#" +  Integer.toString(getSizePolaca()+2));
+	reemplazarEnPolaca(pila.pop(),"#" +  Integer.toString(getSizePolaca()+2));
+	pila.add(getSizePolaca());
+	avanzarPolaca();
+
+//
+//	//if de verificación de triangulo escaleno:  @L1 != @L2  AND @L1 != @L3 AND @L2 != @L3
+	insertarEnPolaca("@L1");
+	insertarEnPolaca("@L2");
+	insertarEnPolaca("CMP");
+	insertarEnPolaca("BEQ");
+	pila.add(getSizePolaca());
+	avanzarPolaca();
+//
+	insertarEnPolaca("@L1");
+	insertarEnPolaca("@L3");
+	insertarEnPolaca("CMP");
+	insertarEnPolaca("BEQ");
+	pila.add(getSizePolaca());
+	avanzarPolaca();
+
+	insertarEnPolaca("@L");
+	insertarEnPolaca("@L3");
+	insertarEnPolaca("CMP");
+	insertarEnPolaca("BEQ");
+	pila.add(getSizePolaca());
+	avanzarPolaca();
+//
+	insertarEnPolaca("escaleno");
+	insertarEnPolaca("@tipoTriangulo");
+	insertarEnPolaca("=");
+	reemplazarEnPolaca(pila.pop(),"#" +  Integer.toString(getSizePolaca()+1));
+	reemplazarEnPolaca(pila.pop(),"#" +  Integer.toString(getSizePolaca()+1));
+	reemplazarEnPolaca(pila.pop(),"#" +  Integer.toString(getSizePolaca()+1));
+	reemplazarEnPolaca(pila.pop(),"#" +  Integer.toString(getSizePolaca()+1));
+
+	//retorno de funcion
+
+
+:};
